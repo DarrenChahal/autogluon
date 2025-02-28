@@ -7,7 +7,7 @@ from omegaconf import DictConfig
 from torch import nn
 from transformers import SamConfig
 
-from ..constants import CLASS_LABEL, CLASS_LOGITS, COLUMN, IMAGE, IMAGE_VALID_NUM, LABEL, LOGITS, MASK_LABEL, MOE_LOSS
+from ..constants import CLASS_LABEL, CLASS_LOGITS, COLUMN, IMAGE, IMAGE_VALID_NUM, LABEL, LOGITS, MASK_LABEL, MOE_LOSS, POINT_PROMPT
 from .adaptation_layers import ConvLoRALinear
 from .custom_hf_models.modeling_sam_for_conv_lora import SamImageSegmentationOutput, SamModel
 from .utils import assign_layer_ids, freeze_model_layers
@@ -393,9 +393,32 @@ class SAMForSemanticSegmentation(nn.Module):
         -------
             A dictionary with mask predictions.
         """
+        # Check if point prompts are available in the batch
+        input_points = None
+        input_labels = None
+        point_prompt_key = f"{self.prefix}_{POINT_PROMPT}"
+        
+        if point_prompt_key in batch and batch[point_prompt_key].sum() != 0:
+            # Extract point prompts from batch
+            points_with_labels = batch[point_prompt_key]  # [batch_size, num_points, 3]
+            
+            # Split into coordinates and labels
+            input_points = points_with_labels[:, :, :2]  # [batch_size, num_points, 2]
+            input_labels = points_with_labels[:, :, 2].long()  # [batch_size, num_points]
+            
+            # Reshape for SAM model input format
+            input_points = input_points.unsqueeze(1)  # [batch_size, 1, num_points, 2]
+            input_labels = input_labels.unsqueeze(1)  # [batch_size, 1, num_points]
+        
         # binary
         if self.num_classes == 1:
-            rets = self.model(batch[self.image_key], multimask_output=False, output_moe_loss=self.output_moe_loss)
+            rets = self.model(
+                batch[self.image_key], 
+                input_points=input_points,
+                input_labels=input_labels,
+                multimask_output=False, 
+                output_moe_loss=self.output_moe_loss
+            )
             pred_masks = rets.pred_masks[:, 0, :, :, :]
             pred_masks = F.interpolate(
                 pred_masks, (self.image_size, self.image_size), mode="bilinear", align_corners=False
@@ -406,7 +429,13 @@ class SAMForSemanticSegmentation(nn.Module):
                 rets_dict = {self.prefix: {LOGITS: pred_masks, LABEL: batch[self.label_key]}}
         # multi-class
         else:
-            rets = self.model(batch[self.image_key], multimask_output=False, output_moe_loss=self.output_moe_loss)
+            rets = self.model(
+                batch[self.image_key], 
+                input_points=input_points,
+                input_labels=input_labels,
+                multimask_output=False, 
+                output_moe_loss=self.output_moe_loss
+            )
             rets, class_predictions = rets
             pred_masks = rets.pred_masks[:, 0, :, :, :]
             pred_classes = class_predictions[:, 0, :, :]

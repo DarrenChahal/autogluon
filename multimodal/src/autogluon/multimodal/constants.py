@@ -15,6 +15,7 @@ IDENTIFIER = "identifier"
 DOCUMENT = "document"
 DOCUMENT_IMAGE = "document_image"
 DOCUMENT_PDF = "document_pdf"
+POINT_COORDINATES = "point_coordinates"  # Added for point prompts
 
 # Scarcity modes
 FEW_SHOT = "few_shot"
@@ -56,6 +57,8 @@ PIXEL_VALUES = "pixel_values"
 INPUT_IDS = "input_ids"
 SEMANTIC_SEGMENTATION_IMG = "semantic_segmentation_img"
 SEMANTIC_SEGMENTATION_GT = "semantic_segmentation_gt"
+POINT_PROMPT = "point_prompt"  # Added for point prompts
+POINT_PROMPT_VALID_NUM = "point_prompt_valid_num"  # Added for point prompts
 
 # Output keys
 LOGITS = "logits"

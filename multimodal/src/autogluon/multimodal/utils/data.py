@@ -32,6 +32,7 @@ from ..constants import (
     SEMANTIC_SEGMENTATION_IMG,
     TEXT,
     TEXT_NER,
+    POINT_COORDINATES,
 )
 from ..data import (
     CategoricalProcessor,
@@ -204,6 +205,15 @@ def create_data_processor(
             norm_type=model_config.image_norm,
             ignore_label=model_config.ignore_label,
         )
+    elif data_type == POINT_COORDINATES:
+        # Create a processor for point prompts
+        from ..data.process_point_prompts import PointPromptProcessor
+        
+        data_processor = PointPromptProcessor(
+            model=model,
+            max_points_per_image=getattr(model_config, "max_points_per_image", 10),
+            missing_value_strategy=getattr(model_config, "point_missing_strategy", "empty"),
+        )
     else:
         raise ValueError(f"unknown data type: {data_type}")
 
@@ -248,6 +258,7 @@ def create_fusion_data_processors(
         TEXT_NER: [],
         DOCUMENT: [],
         SEMANTIC_SEGMENTATION_IMG: [],
+        POINT_COORDINATES: [],
     }
 
     model_dict = {model.prefix: model}
@@ -296,8 +307,18 @@ def create_fusion_data_processors(
                     model=per_model,
                 )
             )
+            # Add point prompt processor for SAM
+            data_processors[POINT_COORDINATES].append(
+                create_data_processor(
+                    data_type=POINT_COORDINATES,
+                    config=config,
+                    model=per_model,
+                )
+            )
             if data_types is not None and SEMANTIC_SEGMENTATION_IMG in data_types:
                 data_types.remove(SEMANTIC_SEGMENTATION_IMG)
+            if data_types is not None and POINT_COORDINATES in data_types:
+                data_types.remove(POINT_COORDINATES)
             requires_label = False
 
         if requires_label:

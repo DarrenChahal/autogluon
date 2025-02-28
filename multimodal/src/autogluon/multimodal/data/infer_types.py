@@ -36,6 +36,7 @@ from ..constants import (
     SEMANTIC_SEGMENTATION_IMG,
     TEXT,
     TEXT_NER,
+    POINT_COORDINATES,
 )
 from .utils import is_rois_input
 
@@ -571,6 +572,9 @@ def infer_column_types(
             data[col_name], col_name=col_name, image_type=IMAGE_BASE64_STR
         ):  # Infer image-base64str column
             column_types[col_name] = IMAGE_BASE64_STR
+        # Check for point prompt columns
+        elif problem_type == SEMANTIC_SEGMENTATION and ('point' in col_name.lower() or 'prompt' in col_name.lower()):
+            column_types[col_name] = POINT_COORDINATES
         else:  # All the other columns are treated as categorical
             column_types[col_name] = CATEGORICAL
 
